@@ -1,6 +1,8 @@
 (in-package :cl-user)
 (defpackage elevator
-  (:use :cl))
+  (:nicknames #:el)
+  (:use :cl
+	:bordeaux-threads))
 (in-package :elevator)
 
 ;;;;parameters
@@ -12,7 +14,12 @@
 
 (defparameter *simulation-speed* nil)
 
+(defparameter *elevator-call* nil) ;alist
+
+(defparameter *lock* (bordeaux-threads:make-lock "lock"))
+
 ;;;;functions
+
 
 ;;number of elevator 
 (defun set-elevator-number (n)
@@ -43,4 +50,88 @@
 (defun set-floor-number (n)
   (cond
     ((and (typep n 'integer) (> n 0)) (setf *floor-number* n))
-    (t (princ "error: elevator capacity must be a strictly positiv integer"))))
+    (t (princ "error: floor number must be a strictly positiv integer"))))
+
+;;
+(defun set-time-boarding (n)
+  (cond
+    ((and (numberp n) (>= n 0))  (setf *time-boarding* n))
+    (t (princ "error: time boarding must be positiv number"))))
+;;
+(defun set-time-between-floor (n)
+  (cond 
+    ((and (numberp n) (>= n 0)) (setf *time-between-floor* n))
+    (t (princ "error: time between floor must be a positiv number"))))
+;;
+(defun setup (&key 
+		(time-between-floor 5) 
+		(time-boarding 10) 
+		(elevator-number 1) 
+		(elevator-capacity 16)
+		(floor-number 5))
+  (set-time-between-floor time-between-floor)
+  (set-time-boarding time-boarding)
+  (set-elevator-number elevator-number)
+  (set-elevator-capacity elevator-capacity)
+  (set-floor-number floor-number)
+  t)
+
+;;
+
+(defun add-elevator-call (floor time)
+  (cond 
+    ((not (assoc floor *elevator-call*)) 
+     (push (cons floor time) *elevator-call*))
+    ((< (cdr (assoc floor *elevator-call*)) 0)
+     (setf (cdr (assoc floor *elevator-call*)) time)))
+  *elevator-call*)
+
+(defun remove-elevator-call (floor)
+  (cond
+    ((not (assoc floor *elevator-call*))
+     (push (cons floor -1) *elevator-call*))
+    ((>= (cdr (assoc floor *elevator-call*)) 0)
+     (setf (cdr (assoc floor *elevator-call*)) -1))
+    (t *elevator-call*)))
+
+;;
+(defun generate-elevator-call-floor-n (floor time)
+  (when (> 2 (random 100)) 
+    (add-elevator-call floor time)))
+
+(defun generate-elevator-call (&key (upper-time-limit 1000))
+  (dotimes (i upper-time-limit)
+    (dotimes (j *floor-number*)
+      (generate-elevator-call-floor-n j i))
+    (sleep 5)))
+
+;;
+(defun make-elevator ()
+  (let ((floor 0)
+	(command ()))
+    #'(lambda (operation)
+    (ecase operation
+      (move-up
+       (progn
+	 (when (< (1+ floor) *floor-number*)
+	   (incf floor 1)
+	   (setf command (cons 'mu command))
+	   (sleep *time-between-floor*))))
+      (move-down
+       (progn
+	 (when (>= (1- floor) 0)
+	   (decf floor 1)
+	   (setf command (cons 'md command))
+	   (sleep *time-between-floor*))))
+      (board
+       (progn
+	 (remove-elevator-call floor)
+	 (setf command (cons 'b command))
+	 (sleep *time-boarding*)))
+      (which-floor
+       (setf command (cons 'wf command))
+       floor)
+      (list-command
+       command)))))
+
+
