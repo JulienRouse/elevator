@@ -64,8 +64,8 @@
     (t (princ "error: time between floor must be a positiv number"))))
 ;;
 (defun setup (&key 
-		(time-between-floor 5) 
-		(time-boarding 10) 
+		(time-between-floor 1) 
+		(time-boarding 2) 
 		(elevator-number 1) 
 		(elevator-capacity 16)
 		(floor-number 5))
@@ -99,10 +99,11 @@
 
 ;;
 (defun generate-elevator-call-floor-n (floor time)
-  (when (> 2 (random 100)) 
+  (when (> 50 (random 100)) 
     (add-elevator-call floor time)))
 
-(defun generate-elevator-call (&key (upper-time-limit 1000) (sleep-time 5))
+(defun generate-elevator-call (&key (upper-time-limit 40) (sleep-time 2))
+  (bt:thread-yield)
   (dotimes (i upper-time-limit)
     (dotimes (j *floor-number*)
       (generate-elevator-call-floor-n j i))
@@ -162,14 +163,38 @@
     
 
 (defun naif-elevator ()
+  (bt:thread-yield ) ;;allow others thread to run, necessary?
   (let ((el (make-elevator)))
     (loop 
-       for goal from *floor-number* downto 0
-       do (when (elevator-call-on-nth-p goal)
-	    (action-move-to el goal)
-	    (action-board el)
-	    (action-move-to el 0)
-	    (action-board el)
-	    (format t "done~%")))
+       for i from 0 to 70
+	 do
+	 (loop 
+	    for goal from *floor-number* downto 0
+	    do (when (elevator-call-on-nth-p goal)
+		 (action-move-to el goal)
+		 (action-board el)
+		 (action-move-to el 0)
+		 (action-board el)
+		 (format t "done~%")))
+	 (sleep 0.10))
     (action-list-command el)))
+
+
+
+;;threads
+(defun setup-thread ()
+  (let ((g (bt:make-thread #'generate-elevator-call 
+			   :name "generate-calls" 
+			   :initial-bindings `((*standard-output* . ,*standard-output*)
+					       (*error-output* . ,*error-output*))))
+	(ne (bt:make-thread #'naif-elevator
+			    :name "elevator"
+			    :initial-bindings `((*standard-output* . ,*standard-output*)
+						(*error-output* . ,*error-output*)))))
+    (print "sleeping")
+    (sleep 60)
+    (format t "~A~%" ne)
+    (format t "~A~%" g) 
+    (bt:join-thread ne)
+    (bt:join-thread g)))
 
