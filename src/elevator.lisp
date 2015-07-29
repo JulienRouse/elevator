@@ -16,7 +16,7 @@
 
 (defparameter *elevator-call* nil) ;alist
 
-(defparameter *lock* (bordeaux-threads:make-lock "lock"))
+(defparameter *lock* (bt:make-lock "lock"))
 
 ;;;;functions
 
@@ -78,6 +78,9 @@
 
 ;;
 
+(defun elevator-call-on-nth-p (floor)
+  (not (or (not (assoc floor *elevator-call*)) (< (cdr (assoc floor *elevator-call*)) 0))))
+
 (defun add-elevator-call (floor time)
   (cond 
     ((not (assoc floor *elevator-call*)) 
@@ -91,19 +94,20 @@
     ((not (assoc floor *elevator-call*))
      (push (cons floor -1) *elevator-call*))
     ((>= (cdr (assoc floor *elevator-call*)) 0)
-     (setf (cdr (assoc floor *elevator-call*)) -1))
-    (t *elevator-call*)))
+     (setf (cdr (assoc floor *elevator-call*)) -1)))
+    *elevator-call*)
 
 ;;
 (defun generate-elevator-call-floor-n (floor time)
   (when (> 2 (random 100)) 
     (add-elevator-call floor time)))
 
-(defun generate-elevator-call (&key (upper-time-limit 1000))
+(defun generate-elevator-call (&key (upper-time-limit 1000) (sleep-time 5))
   (dotimes (i upper-time-limit)
     (dotimes (j *floor-number*)
       (generate-elevator-call-floor-n j i))
-    (sleep 5)))
+    (format t "generate-elevator-call:~%~A~%" *elevator-call*)
+    (sleep sleep-time)))
 
 ;;
 (defun make-elevator ()
@@ -134,4 +138,38 @@
       (list-command
        command)))))
 
+
+;;
+
+(defun action-move-to (elevator floor)
+  (let ((f (funcall elevator 'which-floor)))
+    (format t "going to ~D~%" floor)
+    (cond
+      ((< floor f) 
+       (dotimes (i (- f floor))
+	 (funcall elevator 'move-down)))
+      ((> floor f)
+       (dotimes (i (- floor f))
+	 (funcall elevator 'move-up)))
+      (t (print "fn action-move-to: not moving")))))
+
+(defun action-board (elevator)
+  (format t "Boarding~%")
+  (funcall elevator 'board))
+
+(defun action-list-command (elevator)
+  (reverse (funcall elevator 'list-command)))
+    
+
+(defun naif-elevator ()
+  (let ((el (make-elevator)))
+    (loop 
+       for goal from *floor-number* downto 0
+       do (when (elevator-call-on-nth-p goal)
+	    (action-move-to el goal)
+	    (action-board el)
+	    (action-move-to el 0)
+	    (action-board el)
+	    (format t "done~%")))
+    (action-list-command el)))
 

@@ -9,14 +9,15 @@
 
 (in-package :cl-user)
 (defpackage elevator-asd
-  (:use :cl :asdf))
+  (:use :cl
+	:asdf))
 (in-package :elevator-asd)
 
 (defsystem elevator
   :version "0.1"
   :author "Julien Rousé"
   :license "WTFPL"
-  :depends-on ()
+  :depends-on (:bordeaux-threads)
   :components ((:module "src"
                 :components
                 ((:file "elevator"))))
