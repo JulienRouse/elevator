@@ -18,7 +18,7 @@
 
 (defparameter *lock* (bt:make-lock "lock"))
 
-
+(defparameter *internal-time* nil)
 ;;;;functions
 
 
@@ -63,6 +63,24 @@
   (cond 
     ((and (numberp n) (>= n 0)) (setf *time-between-floor* n))
     (t (princ "error: time between floor must be a positiv number"))))
+;;
+(defun set-internal-time (n)
+  (cond 
+    ((and (numberp n) (>= n 0)) (setf *internal-time* n))
+    (t (princ "error: internal time must be a positiv number"))))
+
+(defun reset-internal-time ()
+  (set-internal-time 0))
+
+(defun add-n-internal-time (n)
+  (incf *internal-time* n))
+
+(defun incr-internal-time ()
+  (add-n-internal-time 1))
+;;
+
+
+
 ;;
 (defun setup (&key 
 		(time-between-floor 1) 
