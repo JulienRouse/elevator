@@ -19,6 +19,7 @@
 (defparameter *lock* (bt:make-lock "lock"))
 
 (defparameter *internal-time* nil)
+(defparameter *time-max-for-simulation* nil)
 ;;;;functions
 
 
@@ -78,8 +79,17 @@
 (defun incr-internal-time ()
   (add-n-internal-time 1))
 ;;
-
-
+(defun set-time-max-for-simulation (n)
+  (cond
+    ((and (numberp n) (>= n 0)) (setf *time-max-for-simulation* n))
+    (t (princ "error: internal time must be a positiv number"))))
+;;
+(defun setup-time-internal (&key 
+		     (internal-time 0) 
+		     (time-max-for-simulation 600))
+  (set-internal-time internal-time)
+  (set-time-max-for-simulation time-max-for-simulation)
+  t)
 
 ;;
 (defun setup (&key 
@@ -87,12 +97,17 @@
 		(time-boarding 2) 
 		(elevator-number 1) 
 		(elevator-capacity 16)
-		(floor-number 5))
+		(floor-number 5)
+		(internal-time 0)
+		(time-max-for-simulation))
+  "Gives a value to every global variable that needs it
+for the program to run."
   (set-time-between-floor time-between-floor)
   (set-time-boarding time-boarding)
   (set-elevator-number elevator-number)
   (set-elevator-capacity elevator-capacity)
   (set-floor-number floor-number)
+  (setup-time-internal :internal-time internal-time :time-max-for-simulation time-max-for-simulation)
   t)
 
 ;;
@@ -122,6 +137,9 @@
     (add-elevator-call floor time)))
 
 (defun generate-elevator-call (&key (upper-time-limit 40) (sleep-time 2))
+  "Generate a alist, with a maximum of *number-floor* + 1 entry.
+Each value is either -1 if the floor didnt make an elevator call,
+or a positiv number representing the time of the call (using *internal-time*)."
   (bt:thread-yield)
   (dotimes (i upper-time-limit)
     (dotimes (j *floor-number*)
@@ -131,6 +149,17 @@
 
 ;;
 (defun make-elevator ()
+  "Closure that create an elevator.
+You can use the function like this: 
+-(defparameter parameter-name (make-elevator))
+And then you can give it command like this:
+-(funcall parameter-name 'command-name)
+The command available are:
+-move-up 
+-move-down
+-board
+-which-floor
+-list-command to return a list of all the previous command (except list-command itself)."
   (let ((floor 0)
 	(command ()))
     #'(lambda (operation)
