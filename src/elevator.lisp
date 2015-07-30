@@ -84,6 +84,21 @@
     ((and (numberp n) (>= n 0)) (setf *time-max-for-simulation* n))
     (t (princ "error: internal time must be a positiv number"))))
 ;;
+(defun set-simulation-speed ()
+  (setf *simulation-speed* 1))
+
+(defun accelerate-simulation-speed ()
+  (if (< *simulation-speed* 8)
+      (setf *simulation-speed* (* *simulation-speed* 2))
+      (print "wont go faster")))
+
+(defun decelerate-simulation-speed ()
+  (if (> *simulation-speed* 1/8)
+      (setf *simulation-speed* (/ *simulation-speed* 2))
+      (print "wont go slower")))
+
+;;
+
 (defun setup-time-internal (&key 
 		     (internal-time 0) 
 		     (time-max-for-simulation 600))
@@ -99,7 +114,7 @@
 		(elevator-capacity 16)
 		(floor-number 5)
 		(internal-time 0)
-		(time-max-for-simulation))
+		(time-max-for-simulation 600))
   "Gives a value to every global variable that needs it
 for the program to run."
   (set-time-between-floor time-between-floor)
@@ -108,6 +123,7 @@ for the program to run."
   (set-elevator-capacity elevator-capacity)
   (set-floor-number floor-number)
   (setup-time-internal :internal-time internal-time :time-max-for-simulation time-max-for-simulation)
+  (set-simulation-speed)
   t)
 
 ;;
@@ -133,20 +149,24 @@ for the program to run."
 
 ;;
 (defun generate-elevator-call-floor-n (floor time)
-  (when (> 50 (random 100)) 
+  (when (> 3 (random 100)) 
     (add-elevator-call floor time)))
 
-(defun generate-elevator-call (&key (upper-time-limit 40) (sleep-time 2))
+(defun generate-elevator-call ()
   "Generate a alist, with a maximum of *number-floor* + 1 entry.
 Each value is either -1 if the floor didnt make an elevator call,
 or a positiv number representing the time of the call (using *internal-time*)."
   (bt:thread-yield)
-  (dotimes (i upper-time-limit)
-    (dotimes (j *floor-number*)
-      (generate-elevator-call-floor-n j i))
-    (format t "generate-elevator-call:~%~A~%" *elevator-call*)
-    (sleep sleep-time)))
+  (loop 
+     for i from *internal-time* 
+     to *time-max-for-simulation* 
+     do
+       (dotimes (j *floor-number*)
+	  (generate-elevator-call-floor-n j i))
+       (format t "generate-elevator-call:~%~A~%" *elevator-call*)))
 
+
+       
 ;;
 (defun make-elevator ()
   "Closure that create an elevator.
